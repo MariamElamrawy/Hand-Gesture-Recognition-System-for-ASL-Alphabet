@@ -10,6 +10,8 @@ detector = HandDetector(maxHands=1)
 offset = 20
 imgSize = 300
 
+folder = "Data/A"
+
 # Check if the webcam opened correctly
 if not cap.isOpened():
     print("Error: Could not open webcam.")
