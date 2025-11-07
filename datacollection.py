@@ -2,6 +2,7 @@ import cv2
 from cvzone.HandTrackingModule import HandDetector
 import numpy as np
 import math 
+import time
 
 # Open the first webcam (usually 0)
 cap = cv2.VideoCapture(0)
@@ -10,7 +11,10 @@ detector = HandDetector(maxHands=1)
 offset = 20
 imgSize = 300
 
-folder = "Data/A"
+folder = "Images/A"
+counter = 0
+
+imgWhite = None
 
 # Check if the webcam opened correctly
 if not cap.isOpened():
@@ -23,7 +27,9 @@ while True:
     if not success:
         print("Failed to grab frame")
         break
+
     hands, img = detector.findHands(img)
+
     if hands:
         hand = hands[0]
         x,y,w,h = hand['bbox']
@@ -31,6 +37,9 @@ while True:
         imgWhite = np.ones((imgSize, imgSize,3),np.uint8)*255
     
         imgCrop = img[y - offset:y + h + offset , x - offset:x + w + offset]
+
+        if imgCrop.size != 0 or imgCrop.shape[0] > 0 or imgCrop.shape[1] > 0:
+            imgCropShape = imgCrop.shape 
 
         imgCropShape = imgCrop.shape
 
@@ -59,11 +68,20 @@ while True:
     # Show the frame
     cv2.imshow("Webcam Feed", img)
 
+    key = cv2.waitKey(1) & 0xFF
+
     # Exit on 'q' key
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if key == ord('q'):
         break
+
+    if key == ord("s"):
+        if imgWhite is not None:
+            counter += 1
+            cv2.imwrite(f'{folder}/Images_{time.time()}.jpg', imgWhite)
+            print(f"Saved image {counter}")
+        else:
+            print("no hand")
 
 # Release the webcam and close windows
 cap.release()
 cv2.destroyAllWindows()
-
