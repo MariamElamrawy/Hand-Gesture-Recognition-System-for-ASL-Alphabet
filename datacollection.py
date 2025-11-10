@@ -3,6 +3,7 @@ from cvzone.HandTrackingModule import HandDetector
 import numpy as np
 import math 
 import time
+import os
 
 # Open the first webcam (usually 0)
 cap = cv2.VideoCapture(0)
@@ -13,6 +14,7 @@ imgSize = 300
 
 folder = "Images/A"
 counter = 0
+os.makedirs(folder, exist_ok=True)
 
 imgWhite = None
 
@@ -20,6 +22,8 @@ imgWhite = None
 if not cap.isOpened():
     print("Error: Could not open webcam.")
     exit()
+
+print("Press 'S' to save | Press 'Q' to quit")
 
 while True:
     # Read frame
@@ -32,38 +36,45 @@ while True:
 
     if hands:
         hand = hands[0]
-        x,y,w,h = hand['bbox']
+        x, y, w, h = hand['bbox']
 
-        imgWhite = np.ones((imgSize, imgSize,3),np.uint8)*255
-    
-        imgCrop = img[y - offset:y + h + offset , x - offset:x + w + offset]
+        # Get image dimensions
+        img_h, img_w, _ = img.shape
+        
+        # Calculate crop boundaries with safety checks
+        y1 = max(0, y - offset)
+        y2 = min(img_h, y + h + offset)
+        x1 = max(0, x - offset)
+        x2 = min(img_w, x + w + offset)
+        
+        imgCrop = img[y1:y2, x1:x2]
 
-        if imgCrop.size != 0 or imgCrop.shape[0] > 0 or imgCrop.shape[1] > 0:
-            imgCropShape = imgCrop.shape 
+        # Only process if crop is valid
+        if imgCrop.size > 0 and imgCrop.shape[0] > 10 and imgCrop.shape[1] > 10:
+            imgWhite = np.ones((imgSize, imgSize, 3), np.uint8) * 255
+            
+            h_crop, w_crop, _ = imgCrop.shape
+            aspectRatio = h_crop / w_crop
 
-        imgCropShape = imgCrop.shape
+            if aspectRatio > 1:
+                # Height is bigger
+                k = imgSize / h_crop
+                wCal = int(k * w_crop)
+                if wCal > 0 and wCal <= imgSize:
+                    imgResize = cv2.resize(imgCrop, (wCal, imgSize))
+                    wGap = (imgSize - wCal) // 2
+                    imgWhite[:, wGap:wGap + wCal] = imgResize
+            else: 
+                # Width is bigger
+                k = imgSize / w_crop
+                hCal = int(k * h_crop)
+                if hCal > 0 and hCal <= imgSize:
+                    imgResize = cv2.resize(imgCrop, (imgSize, hCal))
+                    hGap = (imgSize - hCal) // 2
+                    imgWhite[hGap:hGap + hCal, :] = imgResize
 
-        aspectRatio = h/w
-
-        if aspectRatio > 1:
-            k = imgSize/h
-            wCal = math.ceil(k*w)
-            imgResize = cv2.resize(imgCrop,(wCal,imgSize))
-            imgResizeShape = imgResize.shape
-            wGap = math.ceil((imgSize-wCal)/2)
-            imgWhite [:, wGap:wCal+wGap] = imgResize
-
-        else: 
-            k = imgSize/w
-            hCal = math.ceil(k*h)
-            imgResize = cv2.resize(imgCrop,(imgSize, hCal))
-            imgResizeShape = imgResize.shape
-            hGap = math.ceil((imgSize-hCal)/2)
-            imgWhite [hGap:hCal+hGap, :] = imgResize
-
-
-        cv2.imshow("ImageCrop", imgCrop)
-        cv2.imshow("ImageWhite", imgWhite)
+            cv2.imshow("ImageCrop", imgCrop)
+            cv2.imshow("ImageWhite", imgWhite)
 
     # Show the frame
     cv2.imshow("Webcam Feed", img)
@@ -74,14 +85,16 @@ while True:
     if key == ord('q'):
         break
 
+    # Save on 's' key
     if key == ord("s"):
         if imgWhite is not None:
             counter += 1
-            cv2.imwrite(f'{folder}/Images_{time.time()}.jpg', imgWhite)
+            cv2.imwrite(f'{folder}/Image_{counter}_{int(time.time())}.jpg', imgWhite)
             print(f"Saved image {counter}")
         else:
-            print("no hand")
+            print("No hand detected")
 
 # Release the webcam and close windows
 cap.release()
 cv2.destroyAllWindows()
+print(f"\nTotal saved: {counter} images")
